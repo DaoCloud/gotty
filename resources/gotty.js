@@ -16,7 +16,7 @@
             ws.send(JSON.stringify({ Arguments: args, AuthToken: gotty_auth_token,}));
             pingTimer = setInterval(sendPing, 30 * 1000, ws);
 
-            hterm.defaultStorage = new lib.Storage.Local();
+            hterm.defaultStorage = new lib.Storage.Memory();
             hterm.defaultStorage.clear();
 
             term = new hterm.Terminal();
