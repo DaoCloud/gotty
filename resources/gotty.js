@@ -12,26 +12,23 @@
 
         var pingTimer;
 
-        ws.onopen = function(event) {
-            ws.send(JSON.stringify({ Arguments: args, AuthToken: gotty_auth_token,}));
-            pingTimer = setInterval(sendPing, 30 * 1000, ws);
-
-            hterm.defaultStorage = new lib.Storage.Memory();
-            hterm.defaultStorage.clear();
-
+        var setupHterm = function() {
             term = new hterm.Terminal();
 
-            term.getPrefs().set("send-encoding", "raw");
-
+            // set options
+            // hterm >= 1.79 后，增加了 cursorVisible 的 option，但默认值为 false，这里需要设为 true。
+            // 暂时没有找到更好的设置 options 的方法，就这么直接修改 term.options_ 了。
+            term.options_.cursorVisible = true
+    
             term.onTerminalReady = function() {
                 var io = term.io.push();
-
+    
                 io.onVTKeystroke = function(str) {
                     ws.send("0" + str);
                 };
-
+    
                 io.sendString = io.onVTKeystroke;
-
+    
                 io.onTerminalResize = function(columns, rows) {
                     ws.send(
                         "2" + JSON.stringify(
@@ -42,11 +39,25 @@
                         )
                     )
                 };
-
-                term.installKeyboard();
             };
-
             term.decorate(document.getElementById("terminal"));
+
+            // 为了兼容 FF 64，调整了 termainal 的渲染顺序，导致在 installKeyboard 前可能还没有准备好 terminal，所以这里需要延迟一段时间再 installKeyboard
+            // https://github.com/chromium/hterm/commit/3dd57450f84e9e160a2f0166ecbc27f68643142f 
+            setTimeout(function() {
+                term.installKeyboard();
+            }, 1000);
+        }
+
+        ws.onopen = function(event) {
+            ws.send(JSON.stringify({ Arguments: args, AuthToken: gotty_auth_token,}));
+            pingTimer = setInterval(sendPing, 30 * 1000, ws);
+
+            // 保留之前 jiahui 修改的存储配置
+            hterm.defaultStorage = new lib.Storage.Memory();
+            hterm.defaultStorage.clear();
+
+            lib.init(setupHterm)
         };
 
         ws.onmessage = function(event) {
